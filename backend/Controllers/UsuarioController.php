@@ -495,18 +495,26 @@ class UsuarioController extends AdminController {
         if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
             $token = $matches[1];
             try {
-                // Decodifica usando a classe Auth (que já valida assinatura/expiração)
                 $payload = \App\Psico\Core\Auth::validate($token);
                 if ($payload && isset($payload->sub)) {
-                    return $payload->sub; // 'sub' contém o ID do usuário
+                    return $payload->sub;
                 }
-            } catch (\Exception $e) {
-                // Token inválido, apenas retorna false
-            }
+            } catch (\Exception $e) { /* Token inválido */ }
+        }
+
+        // 3. Fallback: Token enviado no corpo do POST (para ambientes que bloqueiam Authorization header)
+        if (!empty($_POST['_token'])) {
+            try {
+                $payload = \App\Psico\Core\Auth::validate($_POST['_token']);
+                if ($payload && isset($payload->sub)) {
+                    return $payload->sub;
+                }
+            } catch (\Exception $e) { /* Token inválido */ }
         }
 
         return false;
     }
+
 
 
     public function meuPerfilApi() {

@@ -235,6 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData(form);
 
+        // Envia o token também no corpo do POST (fallback para Vercel/servidores que bloqueiam o header Authorization em POST)
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            formData.append('_token', token);
+        }
+
         try {
             const response = await fetch(form.action, {
                 method: 'POST',
@@ -247,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusMsg.style.color = 'green';
                 setTimeout(() => statusMsg.textContent = '', 3000);
             } else {
-                throw new Error(result.message || 'Erro ao salvar');
+                throw new Error(result.message || result.error || 'Erro ao salvar');
             }
         } catch (e) {
             statusMsg.textContent = 'Erro: ' + e.message;
