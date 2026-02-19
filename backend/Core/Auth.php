@@ -71,12 +71,19 @@ class Auth {
         }
 
         if (!preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+            // Prioridade 4: Token enviado no corpo do POST (fallback para Vercel)
+            if (!empty($_POST['_token'])) {
+                $token = $_POST['_token'];
+                // Vai direto para a validação JWT/API_TOKEN abaixo
+                goto validateToken;
+            }
             Response::error('Token não fornecido ou inválido.', 401);
-            exit; // Garante parada
+            exit;
         }
 
         $token = $matches[1];
 
+        validateToken:
         // 1. Tenta validar como Token Fixo (API_TOKEN do .env)
         // Isso permite que o Desktop App acesse sem login inicial para sincronizar/logar
         $apiToken = $_ENV['API_TOKEN'] ?? '';
