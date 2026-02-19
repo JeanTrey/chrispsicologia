@@ -5185,20 +5185,26 @@ body::-webkit-scrollbar-thumb:hover {
 
   .profissional-info-coluna {
     text-align: center;
-    /* Centraliza conteúdo da primeira coluna */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .profissional-info-foto {
-    width: 150px;
-    object-fit: contain;
-    height: 187px;
-    margin-bottom: 10px;
+    width: 65%;
+    max-width: 220px;
+    height: auto;
+    object-fit: cover;
+    margin: 0 auto 10px auto;
+    display: block;
   }
 
   .profissional-info-coluna h3 {
     font-size: 1.4rem;
     margin-left: 0;
-    /* Remove margem */
+    margin-right: 0;
+    width: 100%;
+    text-align: center;
   }
 
   .profissional-info-coluna h4 {
@@ -5208,12 +5214,21 @@ body::-webkit-scrollbar-thumb:hover {
 
   .profissional-info-coluna .tipos-lista {
     justify-content: center;
-    /* Centraliza itens da lista */
     margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+    padding-left: 0;
   }
 
   .profissional-info-coluna .tipos-lista li {
     justify-content: center;
+  }
+
+  .valor-consulta-box {
+    width: 100%;
+    box-sizing: border-box;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .profissional-bio-coluna h4 {

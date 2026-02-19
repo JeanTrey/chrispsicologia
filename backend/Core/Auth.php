@@ -50,67 +50,48 @@ class Auth {
     }
 
     /**
-     * Tenta extrair o token JWT de todas as fontes possíveis (header, body, raw input).
-     * Compatível com ambientes serverless como o Vercel.
-     */
-    public static function resolveToken(): ?string {
-        // 1. $_SERVER['HTTP_AUTHORIZATION'] (padrão CGI/FastCGI - Vercel)
-        if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
-            if (preg_match('/Bearer\s(\S+)/', $_SERVER['HTTP_AUTHORIZATION'], $m)) return $m[1];
-        }
-
-        // 2. $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] (quando há rewrite rules)
-        if (!empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
-            if (preg_match('/Bearer\s(\S+)/', $_SERVER['REDIRECT_HTTP_AUTHORIZATION'], $m)) return $m[1];
-        }
-
-        // 3. getallheaders() (Apache mod_php / local)
-        if (function_exists('getallheaders')) {
-            $headers = getallheaders();
-            $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
-            if (preg_match('/Bearer\s(\S+)/', $authHeader, $m)) return $m[1];
-        }
-
-        // 4. $_POST['_token'] — fallback enviado explicitamente pelo JS
-        if (!empty($_POST['_token'])) {
-            return $_POST['_token'];
-        }
-
-        // 5. Corpo bruto da requisição (caso $_POST não seja preenchido pelo PHP serverless)
-        $rawBody = file_get_contents('php://input');
-        if (!empty($rawBody)) {
-            parse_str($rawBody, $parsedBody);
-            if (!empty($parsedBody['_token'])) {
-                return $parsedBody['_token'];
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Middleware: Verifica o token e para a execução se inválido.
+     * Middleware: Verifica o header Authorization e para a execução se inválido.
+     * Pode ser chamado no início de rotas protegidas.
      */
     public static function check() {
-        $token = self::resolveToken();
+        // Lê o header Authorization com fallbacks para ambientes serverless (ex: Vercel)
+        $authHeader = '';
 
-        if (!$token) {
-            Response::error('Token não fornecido ou inválido.', 401);
-            exit;
+        // Prioridade 1: $_SERVER['HTTP_AUTHORIZATION'] (padrão CGI/FastCGI)
+        if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
+            $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+        }
+        // Prioridade 2: $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] (quando há rewrite rules)
+        elseif (!empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+            $authHeader = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+        }
+        // Prioridade 3: getallheaders() (Apache mod_php)
+        elseif (function_exists('getallheaders')) {
+            $headers = getallheaders();
+            $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
         }
 
-        // 1. Tenta validar como Token Fixo (API_TOKEN do .env - para Desktop App)
-        $apiToken = $_ENV['API_TOKEN'] ?? getenv('API_TOKEN') ?? '';
+        if (!preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+            Response::error('Token não fornecido ou inválido.', 401);
+            exit; // Garante parada
+        }
+
+        $token = $matches[1];
+
+        // 1. Tenta validar como Token Fixo (API_TOKEN do .env)
+        // Isso permite que o Desktop App acesse sem login inicial para sincronizar/logar
+        $apiToken = $_ENV['API_TOKEN'] ?? '';
         if (!empty($apiToken) && $token === $apiToken) {
+            // Retorna um payload "Mestre" fictício para permitir acesso
             return (object) [
-                'sub'  => 0,
-                'role' => 'admin',
-                'iat'  => time(),
-                'exp'  => time() + 3600
+                'sub' => 0, // ID 0 ou outro identificador de sistema
+                'role' => 'admin', // Permissão total
+                'iat' => time(),
+                'exp' => time() + 3600 // Válido por 1h (embora não validado por tempo aqui)
             ];
         }
 
-        // 2. Tenta validar como JWT
+        // 2. Se não for Token Fixo, tenta validar como JWT
         $payload = self::validate($token);
 
         if (!$payload) {
@@ -118,6 +99,7 @@ class Auth {
             exit;
         }
 
+        // Opcional: Retorna o payload para uso no controller
         return $payload;
     }
 
@@ -153,6 +135,7 @@ class Auth {
         if (!$row) return false;
 
         if (strtotime($row['expires_at']) < time()) {
+            // Expirado
             self::revokeRefreshToken($token);
             return false;
         }
@@ -170,3 +153,4 @@ class Auth {
         $stmt->execute([$hash]);
     }
 }
+
